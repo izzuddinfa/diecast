@@ -157,18 +157,19 @@ const fm=s=>/^\d{4}-\d{2}$/.test(s||'')?new Date(s+'-01T00:00:00').toLocaleDateS
 const SORTS={new:['Terbaru ditambah',(a,b)=>b.c-a.c],old:['Terlama ditambah',(a,b)=>a.c-b.c],az:['Nama A–Z',(a,b)=>a.name.localeCompare(b.name,'id')],pd:['Harga beli tertinggi',(a,b)=>(b.price||0)-(a.price||0)],pa:['Harga beli terendah',(a,b)=>(a.price||0)-(b.price||0)],eta:['ETA PO terdekat',(a,b)=>(a.eta||'9999').localeCompare(b.eta||'9999')],yr:['Tahun beli terbaru',(a,b)=>(+b.year||0)-(+a.year||0)]};
 const F0=()=>({brand:[],pack:[],state:[],seller:[],scale:[]});let flt=F0(),sort='new',shown=0,view='list',tsz=120;
 try{const vw=JSON.parse(localStorage.getItem('diecast:view')||'{}');if(vw.v==='tile')view='tile';if(vw.s>=80&&vw.s<=220)tsz=vw.s}catch(e){}
-const tileHtml=i=>`<button class="tile" data-id="${esc(i.id)}"><div class="tp">${i.photo?`<img alt="" src="${i.photo}">`:''}<div class="bd">${i.sold?'<span class="jl sd">TERJUAL</span>':''}${i.po?`<span class="jl po">PO${i.eta?' · '+esc(fm(i.eta)):''}</span>`:''}${i.sell&&!i.sold?'<span class="jl">DIJUAL</span>':''}</div></div><b>${esc(i.name)}</b><span>${esc([i.brand,i.scale].filter(Boolean).join(' · '))}</span><span>${i.price?money(i.price):''}</span></button>`;
+const Q=i=>i.qty||1,SQ=i=>i.sell?Math.min(Q(i),i.sq||Q(i)):0;
+const tileHtml=i=>`<button class="tile" data-id="${esc(i.id)}"><div class="tp">${i.photo?`<img alt="" src="${i.photo}">`:''}<div class="bd">${i.sold?`<span class="jl sd">TERJUAL${Q(i)>1?' ×'+Q(i):''}</span>`:''}${i.po?`<span class="jl po">PO${i.eta?' · '+esc(fm(i.eta)):''}</span>`:''}${i.sell&&!i.sold?`<span class="jl">DIJUAL${Q(i)>1?' '+SQ(i)+'/'+Q(i):''}</span>`:''}</div></div><b>${esc(i.name)}</b><span>${esc([i.brand,i.scale,Q(i)>1?Q(i)+' pcs':''].filter(Boolean).join(' · '))}</span><span>${i.price?money(i.price):''}</span></button>`;
 function render(){
   const act=items.filter(i=>!i.sold&&!i.po),hs=items.some(i=>i.sell&&!i.sold),hd=items.some(i=>i.sold),hp=items.some(i=>i.po&&!i.sold);
   const fs=['Semua',...(hp?['Pre Order']:[]),...(hs?['Dijual']:[]),...(hd?['Terjual']:[])];
   if(!fs.includes(f))f='Semua';
-  $('#n').innerHTML=act.length+(hp?` <span style="font-size:12px;font-weight:400;opacity:.75">+${items.filter(i=>i.po&&!i.sold).length} PO</span>`:'');$('#v').textContent=short(act.reduce((a,i)=>a+(i.price||0),0));
+  $('#n').innerHTML=act.reduce((a,i)=>a+Q(i),0)+(hp?` <span style="font-size:12px;font-weight:400;opacity:.75">+${items.filter(i=>i.po&&!i.sold).reduce((a,i)=>a+Q(i),0)} PO</span>`:'');$('#v').textContent=short(act.reduce((a,i)=>a+(i.price||0)*Q(i),0));
   $('#chips').innerHTML=fs.map(b=>`<button class="chip" data-b="${esc(b)}" aria-pressed="${b===f}">${esc(b)}</button>`).join('');
   const k=q.trim().toLowerCase();
   const pass=i=>f==='Semua'?!i.sold:f==='Pre Order'?i.po&&!i.sold:f==='Dijual'?i.sell&&!i.sold:f==='Terjual'?i.sold:!i.sold;
   const l=items.filter(i=>pass(i)&&Object.keys(flt).every(x=>!flt[x].length||flt[x].includes(i[x]))&&(!k||[i.name,i.brand,i.series,i.loc,i.scale,i.seller].join(' ').toLowerCase().includes(k))).sort(SORTS[sort][1]);shown=l.length;const L=$('#list');L.className=(view==='tile'?'grid'+(tsz<105?' sm':''):'list')+(enter?' enter':'');enter=false;L.style.setProperty('--tile',tsz+'px');L.style.setProperty('--th',Math.round(tsz*.55)+'px');const nf=Object.values(flt).reduce((a,v)=>a+v.length,0);$('#fc').textContent=nf;$('#fc').hidden=!nf;$('#fl').setAttribute('aria-label','Filter'+(nf?` (${nf} aktif)`:''));
-  $('#sum').textContent=!l.length?'':f==='Terjual'?'Total terjual '+money(l.reduce((a,i)=>a+(i.sg||0),0)):f==='Pre Order'?l.length+' PO · total '+money(l.reduce((a,i)=>a+(i.price||0),0)):'';
-  $('#list').innerHTML=l.length?l.map(i=>view==='tile'?tileHtml(i):`<button class="card" data-id="${esc(i.id)}"><div class="th">${i.photo?`<img alt="" src="${i.photo}">`:''}</div><div class="mid"><b>${esc(i.name)}</b><span>${esc([i.brand,i.scale,i.po?i.seller:i.year].filter(Boolean).join(' · '))}</span><em class="tag${i.state&&!good(i.state)?' x':''}">${esc(cl(i))}${i.po?`<span class="jl po">PO${i.eta?' · ETA '+esc(fm(i.eta)):''}</span>`:''}${i.sold?`<span class="jl sd">TERJUAL${i.ch?' · '+esc(i.ch):''} · ${k1(i.sg)}</span>`:i.sell?'<span class="jl">DIJUAL</span>':''}</em></div><div class="pr">${i.price?money(i.price):''}</div></button>`).join(''):`<div class="empty">${items.length?'Tidak ada hasil.':'Belum ada koleksi. Ketuk “+ Tambah” untuk mulai.'}</div>`;
+  $('#sum').textContent=!l.length?'':f==='Terjual'?'Total terjual '+money(l.reduce((a,i)=>a+(i.sg||0)*Q(i),0)):f==='Pre Order'?l.length+' PO · total '+money(l.reduce((a,i)=>a+(i.price||0)*Q(i),0)):'';
+  $('#list').innerHTML=l.length?l.map(i=>view==='tile'?tileHtml(i):`<button class="card" data-id="${esc(i.id)}"><div class="th">${i.photo?`<img alt="" src="${i.photo}">`:''}</div><div class="mid"><b>${esc(i.name)}</b><span>${esc([i.brand,i.scale,i.po?i.seller:i.year,Q(i)>1?Q(i)+' pcs':''].filter(Boolean).join(' · '))}</span><em class="tag${i.state&&!good(i.state)?' x':''}">${esc(cl(i))}${i.po?`<span class="jl po">PO${i.eta?' · ETA '+esc(fm(i.eta)):''}</span>`:''}${i.sold?`<span class="jl sd">TERJUAL${Q(i)>1?' ×'+Q(i):''}${i.ch?' · '+esc(i.ch):''} · ${k1(i.sg)}</span>`:i.sell?`<span class="jl">DIJUAL${Q(i)>1?' '+SQ(i)+'/'+Q(i):''}</span>`:''}</em></div><div class="pr">${i.price?money(i.price):''}</div></button>`).join(''):`<div class="empty">${items.length?'Tidak ada hasil.':'Belum ada koleksi. Ketuk “+ Tambah” untuk mulai.'}</div>`;
   $('#dbr').innerHTML=list('brand').map(x=>`<option value="${esc(x)}">`).join('');
   $('#dsl').innerHTML=list('seller').map(x=>`<option value="${esc(x)}">`).join('');
   $('#dsc').innerHTML=uniq([...SC,...items.map(i=>i.scale)]).map(x=>`<option value="${esc(x)}">`).join('');
@@ -202,7 +203,8 @@ function form(id,pre){
   ${fl('Nama model','name',o.name||'','placeholder="Contoh: Nissan Skyline GT-R (R34)"')}
   <div class="row2">${fl('Merek','brand',o.brand||'','list="dbr" placeholder="Pilih / ketik baru"')}${fl('Skala','scale',o.scale||'1:64','list="dsc"')}</div>
   ${fl('Seri / koleksi','series',o.series||'')}
-  <div class="row2">${fl('Tahun beli','year',o.year||'','inputmode="numeric"')}${fl('Harga beli (Rp)','price',o.price||'','inputmode="numeric"')}</div>
+  <div class="row2">${fl('Tahun beli','year',o.year||'','inputmode="numeric"')}${fl('Harga beli per pcs (Rp)','price',o.price||'','inputmode="numeric"')}</div>
+  <div class="row2">${fl('Jumlah (pcs)','qty',o.qty||1,'type="number" min="1" inputmode="numeric"')}<div></div></div>
   <label class="sw"><input type="checkbox" id="f_po" ${po?'checked':''}>Pre Order (belum datang)</label>
   <div id="pw">${fl('Nama seller','seller',o.seller||'','list="dsl" placeholder="Pilih / ketik seller baru"')}${fl('ETA','eta',o.eta||'','type="month"')}${fl('Link PO','link',o.link||'','type="url" inputmode="url" placeholder="https://…"')}</div>
   <div class="fld">Kemasan</div><div class="chips" id="cp" style="padding-top:4px"></div>
@@ -211,13 +213,16 @@ function form(id,pre){
   ${fl('Lokasi simpan','loc',o.loc||'','list="dlc" placeholder="Contoh: Lemari A, rak 2"')}
   ${fl('Catatan','note',o.note||'')}
   <label class="sw"><input type="checkbox" id="f_sell" ${sell?'checked':''}>Mau dijual</label>
-  <div id="sw2">${fl('Harga jual (Rp)','sp',o.sp||'','inputmode="numeric"')}
+  <div id="sw2"><div class="row2">${fl('Harga jual per pcs (Rp)','sp',o.sp||'','inputmode="numeric"')}${fl('Jumlah dijual','sq',o.sq||o.qty||1,'type="number" min="1" inputmode="numeric"')}</div>
     <label class="sw"><input type="checkbox" id="f_sold" ${sold?'checked':''}>Sudah terjual</label>
-    <div id="sw3"><div class="fld">Terjual lewat</div><div class="chips" id="cc" style="padding-top:4px"></div>${fl('Harga terjual (Rp)','sg',o.sg||o.sp||'','inputmode="numeric"')}</div></div>
+    <div id="sw3"><div class="fld">Terjual lewat</div><div class="chips" id="cc" style="padding-top:4px"></div><div class="row2">${fl('Harga terjual per pcs (Rp)','sg',o.sg||o.sp||'','inputmode="numeric"')}${fl('Jumlah terjual','sn',o.sold?(o.qty||1):(o.sq||o.qty||1),'type="number" min="1" inputmode="numeric"')}</div></div></div>
   <button class="btn" id="sv">Simpan</button>`);
   const vis=()=>{$('#pw').hidden=!po;$('#mw').hidden=!st||good(st);$('#sw2').hidden=!sell;$('#sw3').hidden=!(sell&&sold)};
   pick($('#cp'),'pack',()=>pack,v=>pack=v);pick($('#cs'),'cond',()=>st,v=>st=v,vis);pick($('#cc'),'ch',()=>ch,v=>ch=v);
   $('#f_po').onchange=e=>{po=e.target.checked;vis()};$('#f_sell').onchange=e=>{sell=e.target.checked;vis()};$('#f_sold').onchange=e=>{sold=e.target.checked;vis()};vis();
+  let t1=!!o.sq,t2=!!o.sold;
+  $('#f_sq').addEventListener('input',()=>{t1=true;if(!t2)$('#f_sn').value=$('#f_sq').value});$('#f_sn').addEventListener('input',()=>{t2=true});
+  $('#f_qty').addEventListener('input',()=>{const v=$('#f_qty').value;if(!t1)$('#f_sq').value=v;if(!t2)$('#f_sn').value=$('#f_sq').value});
   $('#pb').onclick=()=>$('#pf').click();
   $('#pf').onchange=async e=>{const fi=e.target.files[0];if(!fi)return;try{ph=await shrink(fi);$('#pv').innerHTML=`<img alt="Foto" src="${ph}">`}catch(x){toast('Foto tidak bisa dibaca.')}};
   $('#sv').onclick=()=>{
@@ -226,8 +231,10 @@ function form(id,pre){
     if(sell&&!num('sp')){toast('Isi harga jual.');$('#f_sp').focus();return}
     if(sell&&sold&&!ch){toast('Pilih terjual lewat mana.');return}
     let lk=g('link');if(lk&&!/^https?:\/\//i.test(lk))lk='https://'+lk;
-    const sl=sell&&sold;
+    const sl=sell&&sold,qty=Math.max(1,num('qty')||1);let sq=sell?Math.min(qty,Math.max(1,num('sq')||qty)):0;const sn=sl?Math.min(qty,Math.max(1,num('sn')||sq)):0;if(sl&&sn>sq)sq=sn;
     const d={name,brand:g('brand'),scale:g('scale'),series:g('series'),year:g('year'),price:num('price'),pack,state:st,minus:good(st)?'':g('minus'),loc:g('loc'),note:g('note'),photo:ph,po,seller:g('seller'),eta:g('eta'),link:lk,sell,sp:sell?num('sp'):0,sold:sl,ch:sl?ch:'',sg:sl?(num('sg')||num('sp')):0,sd:sl?(o.sd||Date.now()):0};
+    d.qty=qty;d.sq=sq;
+    if(sl&&sn<qty){items.push({...d,id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),c:Date.now(),qty:sn,sq:sn});d.sold=false;d.ch='';d.sg=0;d.sd=0;d.qty=qty-sn;d.sq=Math.max(0,sq-sn);d.sell=d.sq>0;if(!d.sell)d.sp=0}
     if(id)Object.assign(o,d);else items.push({id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),c:Date.now(),...d});
     if(persist()){close();render();toast('Tersimpan.')}
   };
@@ -236,8 +243,8 @@ function detail(id){
   const o=items.find(i=>i.id===id);if(!o)return;
   const r=(l,v)=>v?`<div class="dr"><span>${l}</span><b>${esc(v)}</b></div>`:'';
   open(head(esc(o.name))+`<div class="big">${o.photo?`<img alt="${esc(o.name)}" src="${o.photo}">`:'Belum ada foto'}</div>
-  ${r('Merek',o.brand)}${r('Skala',o.scale)}${r('Seri',o.series)}${r('Tahun beli',o.year)}${r('Harga beli',o.price?money(o.price):'')}${r('Kemasan',o.pack)}${r('Kondisi',ct(o))}${r('Lokasi',o.loc)}${r('Catatan',o.note)}${o.po?r('Status PO','Pre Order, belum datang'):''}${r('Seller',o.seller)}${o.po?r('ETA',fm(o.eta)):''}${/^https?:\/\//i.test(o.link||'')?`<div class="dr"><span>Link PO</span><b><a href="${esc(o.link)}" target="_blank" rel="noopener noreferrer" style="color:var(--ac)">Buka link</a></b></div>`:''}
-  ${r('Status',o.sold?`Terjual ${money(o.sg)}${o.ch?' lewat '+o.ch:''}`:o.sell?'Dijual '+money(o.sp):'')}
+  ${r('Merek',o.brand)}${r('Skala',o.scale)}${r('Seri',o.series)}${r('Tahun beli',o.year)}${r('Harga beli',o.price?money(o.price)+(Q(o)>1?' per pcs':''):'')}${r('Jumlah',Q(o)>1?Q(o)+' pcs':'')}${r('Kemasan',o.pack)}${r('Kondisi',ct(o))}${r('Lokasi',o.loc)}${r('Catatan',o.note)}${o.po?r('Status PO','Pre Order, belum datang'):''}${r('Seller',o.seller)}${o.po?r('ETA',fm(o.eta)):''}${/^https?:\/\//i.test(o.link||'')?`<div class="dr"><span>Link PO</span><b><a href="${esc(o.link)}" target="_blank" rel="noopener noreferrer" style="color:var(--ac)">Buka link</a></b></div>`:''}
+  ${r('Status',o.sold?`Terjual ${Q(o)>1?Q(o)+' pcs @ ':''}${money(o.sg)}${o.ch?' lewat '+o.ch:''}`:o.sell?'Dijual '+(Q(o)>1?SQ(o)+' dari '+Q(o)+' pcs @ ':'')+money(o.sp):'')}
   ${o.po?'<button class="btn" id="ar">Tandai sudah datang</button>':''}${o.sell&&!o.sold?'<button class="btn" id="ts">Tandai terjual</button>':''}${o.sold?'<button class="btn o" id="us">Batalkan status terjual</button>':''}
   <div class="row2"><button class="btn o" id="ed">Edit</button><button class="btn r" id="dx">Hapus</button></div>`);
   $('#ed').onclick=()=>form(id);
@@ -270,7 +277,7 @@ function mgr(kind,ed){
       items.forEach(i=>{if(i[k.f]===d.ok)i[k.f]=v});opt[kind]=uniq(opt[kind].map(x=>x===d.ok?v:x));saveOpt();persist();render();toast('Diperbarui.');return mgr(kind)}};
 }
 const S=x=>typeof x==='string'?x.slice(0,300):'';
-function clean(o){return{id:S(String(o.id||'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5))),c:Number(o.c)||Date.now(),name:S(o.name),brand:S(o.brand),scale:S(o.scale),series:S(o.series),year:S(String(o.year||'')),price:Number(o.price)||0,pack:S(o.pack)||'Sealed',state:S(o.state)||(o.cond==='Cacat'?'Minus':'Mulus'),minus:S(o.minus),po:!!o.po,seller:S(o.seller),eta:S(o.eta),link:typeof o.link==='string'&&/^https?:\/\//i.test(o.link)?o.link.slice(0,1000):'',sell:!!o.sell,sp:Number(o.sp)||0,sold:!!o.sold,ch:S(o.ch),sg:Number(o.sg)||0,sd:Number(o.sd)||0,loc:S(o.loc),note:S(o.note),photo:typeof o.photo==='string'&&/^(data:image\/|https:\/\/drive\.google\.com\/)/.test(o.photo)?o.photo:''}}
+function clean(o){return{id:S(String(o.id||'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5))),c:Number(o.c)||Date.now(),name:S(o.name),brand:S(o.brand),scale:S(o.scale),series:S(o.series),year:S(String(o.year||'')),price:Number(o.price)||0,pack:S(o.pack)||'Sealed',state:S(o.state)||(o.cond==='Cacat'?'Minus':'Mulus'),minus:S(o.minus),qty:Math.max(1,Math.floor(Number(o.qty))||1),sq:Math.max(0,Math.floor(Number(o.sq))||0),po:!!o.po,seller:S(o.seller),eta:S(o.eta),link:typeof o.link==='string'&&/^https?:\/\//i.test(o.link)?o.link.slice(0,1000):'',sell:!!o.sell,sp:Number(o.sp)||0,sold:!!o.sold,ch:S(o.ch),sg:Number(o.sg)||0,sd:Number(o.sd)||0,loc:S(o.loc),note:S(o.note),photo:typeof o.photo==='string'&&/^(data:image\/|https:\/\/drive\.google\.com\/)/.test(o.photo)?o.photo:''}}
 function imp(t){
   try{const d=JSON.parse(t),a=Array.isArray(d)?d:d.items;if(!Array.isArray(a))throw 0;
     const m=new Map(items.map(i=>[i.id,i]));a.filter(x=>x&&x.name).forEach(x=>{const c=clean(x);m.set(c.id,c)});
@@ -299,7 +306,7 @@ function backup(){
   $('#bfi').onchange=e=>{const fi=e.target.files[0];if(!fi)return;const r=new FileReader();r.onload=()=>imp(r.result);r.readAsText(fi)};
   let s=0;$('#ba').onclick=()=>{if(!s){s=1;$('#ba').textContent='Yakin? Ketuk lagi untuk hapus semua';return}items=[];persist();close();render();toast('Semua data dihapus.')};
 }
-const wl=i=>{const nm=(i.brand&&!i.name.toLowerCase().startsWith(i.brand.toLowerCase())?i.brand+' ':'')+i.name;return '- '+[(nm+' '+(i.pack||'')).trim(),ct(i),k1(i.sp)].filter(Boolean).join(', ')};
+const wl=i=>{const nm=(i.brand&&!i.name.toLowerCase().startsWith(i.brand.toLowerCase())?i.brand+' ':'')+i.name;return '- '+[(nm+' '+(i.pack||'')).trim(),ct(i),k1(i.sp)+(SQ(i)>1?' ('+SQ(i)+' pcs)':'')].filter(Boolean).join(', ')};
 function wts(){
   const L=items.filter(i=>i.sell&&!i.sold).sort((a,b)=>a.c-b.c),on=new Set(L.map(i=>i.id));
   if(!L.length){open(head('Template jual',1)+'<div class="empty">Belum ada item yang dijual. Buka item → Edit → centang “Mau dijual”.</div>');return}
