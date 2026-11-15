@@ -166,6 +166,13 @@ html,body{height:100%;overflow:hidden}
 .sbt{font-size:12px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:18px 10px 6px}
 .sbi{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:0 10px;border:0;border-radius:12px;background:none;text-align:left;font-size:15px}
 .sbi:hover{background:var(--sf)}.sbi svg{flex:none;color:var(--ac)}
+.pager{display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0;border-top:1px solid var(--ln);background:var(--bg);flex:none}
+.pager .ghost{width:44px;padding:0;font-size:20px}
+.pager .ghost:disabled{opacity:.4;cursor:default}
+.pager select{height:44px;border:1px solid var(--ln);border-radius:12px;background:var(--sf);padding:0 12px;font:inherit;color:inherit;min-width:140px}
+.pager small{color:var(--mut);margin-left:4px}
+.hpg .scroll{padding-bottom:24px}
+.hpg .fab{bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 [hidden]{display:none!important}
 :focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 </style>
@@ -178,6 +185,7 @@ html,body{height:100%;overflow:hidden}
   <div class="chips" id="chips"></div>
   <div class="scroll" id="sc"><div class="hint" id="sum" style="margin:0 0 8px"></div>
   <div class="list" id="list"></div></div>
+  <div class="pager" id="pg" hidden></div>
 </div>
 <button class="fab" id="add">+ Tambah</button>
 <div id="sheet" hidden><div class="panel" id="panel"></div></div>
@@ -213,8 +221,8 @@ const ct=i=>i.state&&!good(i.state)?i.state+(i.minus?' '+i.minus:''):(i.state||'
 const cl=i=>[i.pack,ct(i)].filter(Boolean).join(', ');
 const fm=s=>/^\d{4}-\d{2}$/.test(s||'')?new Date(s+'-01T00:00:00').toLocaleDateString('id-ID',{month:'short',year:'numeric'}):(s||'');
 const SORTS={new:['Terbaru ditambah',(a,b)=>b.c-a.c],old:['Terlama ditambah',(a,b)=>a.c-b.c],az:['Nama A–Z',(a,b)=>a.name.localeCompare(b.name,'id')],pd:['Harga beli tertinggi',(a,b)=>TP(b)-TP(a)],pa:['Harga beli terendah',(a,b)=>TP(a)-TP(b)],eta:['ETA PO terdekat',(a,b)=>(a.eta||'9999').localeCompare(b.eta||'9999')],yr:['Tahun beli terbaru',(a,b)=>(+b.year||0)-(+a.year||0)]};
-const F0=()=>({brand:[],pack:[],state:[],seller:[],scale:[]});let flt=F0(),sort='new',shown=0,view='list',tsz=120;
-try{const vw=JSON.parse(localStorage.getItem('diecast:view')||'{}');if(vw.v==='tile')view='tile';if(vw.s>=80&&vw.s<=220)tsz=vw.s}catch(e){}
+const F0=()=>({brand:[],pack:[],state:[],seller:[],scale:[]});let flt=F0(),sort='new',shown=0,view='list',tsz=120,pp=24,pg=0,psig='';
+try{const vw=JSON.parse(localStorage.getItem('diecast:view')||'{}');if(vw.v==='tile')view='tile';if(vw.s>=80&&vw.s<=220)tsz=vw.s;if([0,12,24,48,100].includes(vw.pp))pp=vw.pp}catch(e){}
 const Q=i=>i.qty||1,SQ=i=>i.sell?Math.min(Q(i),i.sq||Q(i)):0;
 const dp=()=>({pack:list('pack')[0]||'',state:list('cond')[0]||'',minus:'',year:'',loc:'',price:0,ph:[],th:0,s:false});
 const PS=i=>Array.isArray(i.ps)&&i.ps.length?i.ps:[{pack:i.pack||'',state:i.state||'',minus:i.minus||'',year:i.year||'',loc:i.loc||'',price:i.price||0,ph:i.photo?[i.photo]:[],th:0,s:!!i.sell}];
@@ -246,11 +254,20 @@ function render(){
   $('#gp').style.borderColor=grp!=='none'?'var(--ac)':'';$('#gp').setAttribute('aria-label','Kelompokkan: '+GN[grp]);
   $('#sum').textContent=!l.length?'':f==='Terjual'?'Total terjual '+money(l.reduce((a,i)=>a+(i.sg||0)*Q(i),0)):f==='Pre Order'?l.length+' PO · total '+money(l.reduce((a,i)=>a+TP(i),0)):'';
   const card=i=>view==='tile'?tileHtml(i):cardHtml(i);
-  let h;
+  let h='',pages=1;
+  const sig=JSON.stringify([f,q,flt,sort,grp,pp]);if(sig!==psig){psig=sig;pg=0}
   if(!l.length)h=`<div class="empty">${items.length?'Tidak ada hasil.':'Belum ada koleksi. Ketuk “+ Tambah” untuk mulai.'}</div>`;
-  else if(grp==='none')h=l.map(card).join('');
-  else{const m=new Map();l.forEach(i=>{const g=GK[grp](i)||'(Kosong)';if(!m.has(g))m.set(g,[]);m.get(g).push(i)});
-    h=[...m.keys()].sort((a,b)=>a.localeCompare(b,'id',{numeric:true})).map(g=>{const a=m.get(g),c=gcol.has(grp+':'+g);return `<button class="gh" data-g="${esc(grp+':'+g)}" aria-expanded="${!c}"><span>${esc(g)} <small>(${a.length})</small></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(${c?-90:0}deg);transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></button>`+(c?'':a.map(card).join(''))}).join('')}
+  else{
+    const E=[],cnt=new Map(),per=pp||1e9;let n=0;
+    if(grp==='none')l.forEach(i=>{E.push({i,p:Math.floor(n/per)});n++});
+    else{const m=new Map();l.forEach(i=>{const g=GK[grp](i)||'(Kosong)';if(!m.has(g))m.set(g,[]);m.get(g).push(i)});
+      [...m.keys()].sort((a,b)=>a.localeCompare(b,'id',{numeric:true})).forEach(g=>{const a=m.get(g),c=gcol.has(grp+':'+g);cnt.set(g,a.length);E.push({h:g,t:a.length,c,p:Math.floor(n/per)});if(!c)a.forEach(i=>{E.push({i,g,p:Math.floor(n/per)});n++})})}
+    pages=E.reduce((a,e)=>Math.max(a,e.p),0)+1;if(pg>=pages)pg=pages-1;
+    const pe=E.filter(e=>e.p===pg);
+    if(grp!=='none'&&pe.length&&pe[0].i)pe.unshift({h:pe[0].g,t:cnt.get(pe[0].g),c:false,cont:true});
+    h=pe.map(e=>e.h!==undefined?`<button class="gh" data-g="${esc(grp+':'+e.h)}" aria-expanded="${!e.c}"><span>${esc(e.h)}${e.cont?' (lanjutan)':''} <small>(${e.t})</small></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform:rotate(${e.c?-90:0}deg);transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg></button>`:card(e.i)).join('')}
+  const PG=$('#pg'),pon=!!pp&&pages>1;PG.hidden=!pon;document.body.classList.toggle('hpg',pon);
+  if(pon)PG.innerHTML=`<button class="ghost" data-pg="-1" aria-label="Halaman sebelumnya" ${pg<1?'disabled':''}>‹</button><select id="pgs" aria-label="Pilih halaman">${Array.from({length:pages},(_,k)=>`<option value="${k}" ${k===pg?'selected':''}>Hal ${k+1} / ${pages}</option>`).join('')}</select><button class="ghost" data-pg="1" aria-label="Halaman berikutnya" ${pg>=pages-1?'disabled':''}>›</button><small>${l.length} item</small>`;
   L.innerHTML=h;
   $('#dbr').innerHTML=list('brand').map(x=>`<option value="${esc(x)}">`).join('');
   $('#dsl').innerHTML=list('seller').map(x=>`<option value="${esc(x)}">`).join('');
@@ -508,10 +525,12 @@ function viewer(){
   open(head('Tampilan')+`<div class="chips" id="vm" style="padding-top:4px">${[['list','Daftar'],['tile','Ubin']].map(([k,t])=>`<button class="chip" data-vm="${k}" aria-pressed="${view===k}">${t}</button>`).join('')}</div>
   <label class="fld" for="vs">Ukuran: <span id="vl"></span></label>
   <input type="range" id="vs" min="80" max="220" step="10" value="${tsz}" style="width:100%;height:44px;accent-color:var(--ac)">
+  <div class="fld">Item per halaman</div><div class="chips" id="vp" style="padding-top:4px">${[[12,'12'],[24,'24'],[48,'48'],[100,'100'],[0,'Semua']].map(([k,t])=>`<button class="chip" data-pp="${k}" aria-pressed="${pp===k}">${t}</button>`).join('')}</div>
   <p class="hint">Geser untuk memperbesar atau memperkecil foto. Berlaku untuk tampilan daftar dan ubin.</p>`);
-  const sv=()=>{try{localStorage.setItem('diecast:view',JSON.stringify({v:view,s:tsz}))}catch(e){}};
+  const sv=()=>{try{localStorage.setItem('diecast:view',JSON.stringify({v:view,s:tsz,pp}))}catch(e){}};
   const lb=()=>{$('#vl').textContent=tsz<105?'Kecil':tsz<150?'Sedang':tsz<190?'Besar':'Sangat besar'};lb();
   $('#vm').onclick=e=>{const b=e.target.closest('[data-vm]');if(!b)return;view=b.dataset.vm;enter=true;[...$('#vm').children].forEach(x=>x.setAttribute('aria-pressed',x.dataset.vm===view));sv();render()};
+  $('#vp').onclick=e=>{const b=e.target.closest('[data-pp]');if(!b)return;pp=+b.dataset.pp;[...$('#vp').children].forEach(x=>x.setAttribute('aria-pressed',x===b));sv();enter=true;render()};
   $('#vs').oninput=e=>{tsz=+e.target.value;lb();sv();render()};
 }
 function sorter(){
@@ -606,6 +625,8 @@ function themeUI(){
 }
 $('#sy').onclick=()=>cfg.url?(busy?toast('Sedang sinkron…'):sync(true)):syncUI();$('#pl').onclick=themeUI;
 $('#gp').onclick=grouper;
+$('#pg').onclick=e=>{const b=e.target.closest('[data-pg]');if(b&&!b.disabled){pg+=+b.dataset.pg;enter=true;render();$('#sc').scrollTop=0}};
+$('#pg').onchange=e=>{if(e.target.id==='pgs'){pg=+e.target.value;enter=true;render();$('#sc').scrollTop=0}};
 $('#sbw').onclick=e=>{if(e.target.id==='sbo'||e.target.closest('[data-x]'))return sbClose();const b=e.target.closest('[data-m]');if(!b)return;sbClose();const k=b.dataset.m;k==='tema'?themeUI():k==='sync'?syncUI():k==='wts'?wts():k==='bk'?backup():k==='foto'?photoUI():mgr(k)};
 document.addEventListener('keydown',e=>{if(!$('#lb').hidden){if(e.key==='Escape')lbClose();else if(e.key==='ArrowRight')$('#lnx')&&$('#lnx').click();else if(e.key==='ArrowLeft')$('#lpv')&&$('#lpv').click();else return;e.stopImmediatePropagation();return}if(!$('#sbw').hidden&&e.key==='Escape'){sbClose();e.stopImmediatePropagation()}},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)close()});
