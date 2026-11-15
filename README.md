@@ -36,7 +36,7 @@ Data lama di aplikasi versi sebelumnya bisa dipindah lewat **Cadangan & ekspor**
 ## Cara kerja
 - Sinkron otomatis: saat aplikasi dibuka, beberapa detik setelah Anda menyimpan perubahan, dan saat kembali ke aplikasi.
 - Satu item sama dengan satu baris di sheet `items`. Jangan ubah kolom `id`, `updated`, `deleted`, dan `json` secara manual. Perubahan harus lewat aplikasi.
-- Foto diunggah ke folder Drive **Diecast Foto** dan bisa dilihat oleh siapa saja yang punya link-nya. Link-nya acak dan tidak mudah ditebak.
+- Foto diunggah ke folder **Diecast Foto** yang dibuat otomatis di folder yang sama dengan spreadsheet Anda (misalnya `/diecast/Diecast Foto`), dan bisa dilihat oleh siapa saja yang punya link-nya. Link-nya acak dan tidak mudah ditebak.
 - Kalau dua perangkat mengubah item yang sama, perubahan terakhir yang tersinkron yang dipakai.
 - Data tetap tersimpan di HP, jadi aplikasi bisa dipakai saat offline dan akan sinkron saat online lagi.
 - Daftar pilihan tambahan yang belum dipakai item mana pun (merek, kemasan, kondisi, dan lainnya) tidak ikut disinkronkan.
@@ -50,3 +50,7 @@ Data lama di aplikasi versi sebelumnya bisa dipindah lewat **Cadangan & ekspor**
 - **"Sinkron gagal" atau tidak ada respons:** pastikan akses penerapan "Siapa saja" dan URL berakhiran `/exec`.
 - **Setelah mengubah `Code.gs`:** wajib membuat versi penerapan baru, kalau tidak perubahan tidak berlaku.
 - **Foto tidak muncul:** pastikan folder Diecast Foto di Drive belum dihapus atau dibatasi aksesnya.
+
+## Catatan pembaruan (foto per pcs dan unduh foto)
+- `Code.gs` berubah: foto tiap pcs sekarang ikut diunggah ke Drive, dan ada perintah baru untuk mengambil foto saat fitur **Unduh foto** dipakai. Tempel ulang `Code.gs` (jangan lupa isi token lagi), lalu buat versi penerapan baru: **Terapkan → Kelola penerapan → ikon pensil → Versi baru → Terapkan**. Kalau Google meminta izin lagi, setujui.
+- Foto lama yang sudah terunggah tetap berfungsi. Item lama otomatis diubah ke format per pcs saat aplikasi dibuka.
