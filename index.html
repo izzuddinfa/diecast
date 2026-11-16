@@ -193,6 +193,9 @@ html,body{height:100%;overflow:hidden}
 .bar2 i{display:block;height:100%;background:var(--ac);border-radius:4px;transition:width .4s}
 @media (min-width:720px){.stats{flex-wrap:wrap}.st{flex:1 1 170px}.st.xs{display:block}.st b{font-size:26px}}
 @media (min-width:1000px){.wrap{max-width:min(1760px,96vw)}.list{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}.stats{max-width:none}.fab{right:max(32px,calc((100vw - min(1760px,96vw))/2 + 32px))}}
+.sv{display:flex;gap:14px;align-items:baseline;white-space:nowrap}
+.sv b{font-size:14px}
+.sv .mny{color:var(--ink);min-width:104px;text-align:right;font-size:14px}
 [hidden]{display:none!important}
 :focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 </style>
@@ -675,39 +678,46 @@ const kwMatch=(i,ks)=>{const t=[i.name,i.brand,i.series].join(' ').toLowerCase()
 function statRows(set,dim,sc){const m=new Map(),add=(k,u,v)=>{k=k||'(Kosong)';const e=m.get(k)||[0,0];e[0]+=u;e[1]+=v;m.set(k,e)};
   set.forEach(i=>{if(['pack','state','year','loc'].includes(dim))PS(i).forEach(p=>add(p[dim],1,vOf(i,sc,p)));else add(i[dim],Q(i),vOf(i,sc))});
   return [...m].map(([k,[u,v]])=>({k,u,v})).sort((a,b)=>b.u-a.u||b.v-a.v)}
+function togNb(){nbl=!nbl;try{localStorage.setItem('diecast:nb',nbl?'1':'0')}catch(x){}paintNb()}
 function statsUI(sc0){
   if(sc0)stS.sc=sc0;kwEd=null;kwDel=null;
   open(head('Statistik',1)+'<div id="sx"></div>');
   const sx=$('#sx');
-  const bar=(label,u,v,mx,sub)=>`<div class="sr"><div class="sh"><span>${esc(label)}${sub?` <small>${esc(sub)}</small>`:''}</span><b>${u} <small class="mny">${short(v)}</small></b></div><div class="bar2"><i style="width:${mx?Math.round(u/mx*100):0}%"></i></div></div>`;
-  const kwForm=g=>`<div class="pc"><label class="fld" style="margin-top:0">Nama statistik<input class="inp" id="kl" value="${esc(g.l||'')}" placeholder="Contoh: Skyline R34"></label><label class="fld">Keyword (pisahkan dengan koma)<input class="inp" id="kk" value="${esc((g.k||[]).join(', '))}" placeholder="Contoh: R34, GT-R R34"></label><div class="row2"><button class="btn o" data-kc="1" style="margin-top:12px">Batal</button><button class="btn" data-ks="${esc(g.id||'new')}" style="margin-top:12px">Simpan</button></div></div>`;
+  const row=(label,u,v,mx,sub)=>`<div class="sr"><div class="sh"><span>${esc(label)}${sub?` <small>${esc(sub)}</small>`:''}</span><span class="sv"><b>${u} unit</b><span class="mny">${money(v)}</span></span></div><div class="bar2"><i style="width:${mx?Math.round(u/mx*100):0}%"></i></div></div>`;
+  const kwForm=g=>`<div class="pc"><label class="fld" style="margin-top:0">Nama kelompok<input class="inp" id="kl" value="${esc(g.l||'')}" placeholder="Contoh: Model Mobil"></label><label class="fld">Keyword (pisahkan dengan koma)<input class="inp" id="kk" value="${esc((g.k||[]).join(', '))}" placeholder="Contoh: R34, R35, Supra, 911 GT3"></label><div class="row2"><button class="btn o" data-kc="1" style="margin-top:12px">Batal</button><button class="btn" data-ks="${esc(g.id||'new')}" style="margin-top:12px">Simpan</button></div></div>`;
   const draw=()=>{
-    const [,fn]=SCP[stS.sc],set=items.filter(fn),U=set.reduce((a,i)=>a+Q(i),0),V=set.reduce((a,i)=>a+vOf(i,stS.sc),0),rows=statRows(set,stS.dim,stS.sc),mx=rows.reduce((a,r)=>Math.max(a,r.u),0),kws=kwL();
-    sx.innerHTML=`<div class="chips" style="padding:4px 0 8px">${Object.entries(SCP).map(([k,v])=>`<button class="chip" data-sc="${k}" aria-pressed="${k===stS.sc}">${v[0]}</button>`).join('')}</div>
+    const kws=kwL();if(stS.dim.startsWith('k:')&&!kws.some(g=>'k:'+g.id===stS.dim))stS.dim='brand';
+    const [,fn]=SCP[stS.sc],set=items.filter(fn),U=set.reduce((a,i)=>a+Q(i),0),V=set.reduce((a,i)=>a+vOf(i,stS.sc),0);
+    const cg=kws.find(g=>'k:'+g.id===stS.dim),sm=(a,f)=>a.reduce((x,i)=>x+f(i),0);
+    let rows;
+    if(cg){const used=new Set();rows=cg.k.map(k=>{const m=set.filter(i=>kwMatch(i,[k]));m.forEach(i=>used.add(i.id));return{k,u:sm(m,Q),v:sm(m,i=>vOf(i,stS.sc))}}).sort((a,b)=>b.u-a.u||b.v-a.v);
+      const rest=set.filter(i=>!used.has(i.id));if(rest.length)rows.push({k:'Lainnya',u:sm(rest,Q),v:sm(rest,i=>vOf(i,stS.sc)),sub:'tidak cocok keyword manapun'})}
+    else rows=statRows(set,stS.dim,stS.sc);
+    const mx=rows.reduce((a,r)=>Math.max(a,r.u),0);
+    sx.innerHTML=`<div class="chips" style="padding:4px 0 8px;align-items:center">${Object.entries(SCP).map(([k,v])=>`<button class="chip" data-sc="${k}" aria-pressed="${k===stS.sc}">${v[0]}</button>`).join('')}<button class="ghost ic" data-eye="1" style="margin-left:auto" aria-label="${nbl?'Tampilkan nilai':'Sembunyikan nilai'}">${nbl?EYE_OFF:EYE_ON}</button></div>
     <div class="stats" style="margin:0 0 4px"><div class="st d"><div class="stm"><small>Total unit</small><b>${U}</b></div></div><div class="st"><div class="stm"><small>${stS.sc==='sold'?'Nilai jual':'Nilai beli'}</small><b class="mny" style="font-size:20px">${money(V)}</b></div></div><div class="st"><div class="stm"><small>Rata-rata per unit</small><b class="mny" style="font-size:20px">${U?money(Math.round(V/U)):'Rp 0'}</b></div></div></div>
-    <div class="fld">Berdasarkan</div><div class="chips" style="flex-wrap:wrap;overflow:visible;padding-top:6px">${Object.entries(DIM).map(([k,t])=>`<button class="chip" data-dm="${k}" aria-pressed="${k===stS.dim}">${t}</button>`).join('')}</div>
-    ${rows.length?rows.map(r=>bar(r.k,r.u,r.v,mx)).join(''):'<p class="hint">Belum ada data.</p>'}
-    <div class="fld" style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;color:var(--ink);font-weight:700;font-size:15px"><span>Statistik keyword</span><button class="ghost" data-kn="1" style="height:36px;font-size:13px">+ Tambah</button></div>
-    <p class="hint">Hitung unit dan nilai untuk nama model yang mengandung keyword, misalnya R34 atau Porsche 911 GT3. Dihitung sesuai kelompok di atas (${SCP[stS.sc][0]}).</p>
+    <div class="fld">Berdasarkan</div><div class="chips" style="flex-wrap:wrap;overflow:visible;padding-top:6px">${Object.entries(DIM).map(([k,t])=>`<button class="chip" data-dm="${k}" aria-pressed="${k===stS.dim}">${t}</button>`).join('')}${kws.map(g=>`<button class="chip" data-dm="k:${esc(g.id)}" aria-pressed="${'k:'+g.id===stS.dim}">${esc(g.l||g.k.join(', '))}</button>`).join('')}<button class="chip" data-kn="1" style="border-style:dashed" aria-label="Tambah kelompok keyword">+ Tambah</button></div>
     ${kwEd==='new'?kwForm({}):''}
-    ${kws.map(g=>{if(kwEd===g.id)return kwForm(g);const m=set.filter(i=>kwMatch(i,g.k)),u=m.reduce((a,i)=>a+Q(i),0),v=m.reduce((a,i)=>a+vOf(i,stS.sc),0);
-      return bar(g.l||g.k.join(', '),u,v,U,g.k.join(', '))+`<div style="display:flex;gap:6px;margin-top:6px"><button class="ghost" data-ke="${esc(g.id)}" style="height:36px;font-size:13px">Ubah</button><button class="ghost" data-kd="${esc(g.id)}" style="height:36px;font-size:13px;${kwDel===g.id?'color:var(--bad);border-color:var(--bad)':''}">${kwDel===g.id?'Yakin hapus?':'Hapus'}</button></div>`}).join('')}
-    ${!kws.length&&kwEd!=='new'?'<p class="hint">Belum ada keyword. Ketuk “+ Tambah”.</p>':''}`;
+    ${cg&&kwEd!==cg.id?`<div style="display:flex;align-items:center;gap:6px;margin-top:8px"><span class="hint" style="flex:1;margin:0">Keyword: ${esc(cg.k.join(', '))}. Satu model bisa terhitung di beberapa keyword.</span><button class="ghost" data-ke="${esc(cg.id)}" style="height:36px;font-size:13px">Ubah</button><button class="ghost" data-kd="${esc(cg.id)}" style="height:36px;font-size:13px;${kwDel===cg.id?'color:var(--bad);border-color:var(--bad)':''}">${kwDel===cg.id?'Yakin hapus?':'Hapus'}</button></div>`:''}
+    ${cg&&kwEd===cg.id?kwForm(cg):''}
+    ${rows.length?rows.map(r=>row(r.k,r.u,r.v,mx,r.sub)).join(''):'<p class="hint">Belum ada data.</p>'}
+    ${!kws.length&&kwEd!=='new'?'<p class="hint" style="margin-top:16px">Ingin statistik sendiri? Ketuk “+ Tambah”, misalnya kelompok “Model Mobil” dengan keyword R34, R35, Supra. Setiap keyword jadi satu baris dengan jumlah dan nilainya.</p>':''}`;
   };
   sx.onclick=e=>{const b=e.target.closest('button');if(!b)return;const d=b.dataset;
     if(d.sc){stS.sc=d.sc;draw()}
-    else if(d.dm){stS.dim=d.dm;draw()}
+    else if(d.dm){stS.dim=d.dm;kwEd=null;kwDel=null;draw()}
+    else if(d.eye!==undefined){togNb();draw()}
     else if(d.kn!==undefined){kwEd='new';kwDel=null;draw();$('#kl').focus()}
     else if(d.ke!==undefined){kwEd=d.ke;kwDel=null;draw();$('#kl').focus()}
     else if(d.kc!==undefined){kwEd=null;draw()}
-    else if(d.kd!==undefined){if(kwDel===d.kd){kwS(kwL().filter(g=>g.id!==d.kd));kwDel=null}else kwDel=d.kd;draw()}
+    else if(d.kd!==undefined){if(kwDel===d.kd){kwS(kwL().filter(g=>g.id!==d.kd));kwDel=null;stS.dim='brand'}else kwDel=d.kd;draw()}
     else if(d.ks!==undefined){const ks=$('#kk').value.split(',').map(x=>x.trim()).filter(Boolean);if(!ks.length){toast('Isi minimal satu keyword.');return}
       const lab=$('#kl').value.trim()||ks.join(', '),a=kwL();
-      if(d.ks==='new')a.push({id:'k'+Date.now().toString(36),l:lab,k:ks});else{const g=a.find(x=>x.id===d.ks);if(g){g.l=lab;g.k=ks}}
+      if(d.ks==='new'){const id='k'+Date.now().toString(36);a.push({id,l:lab,k:ks});stS.dim='k:'+id}else{const g=a.find(x=>x.id===d.ks);if(g){g.l=lab;g.k=ks}}
       kwS(a);kwEd=null;draw();toast('Tersimpan.')}};
   draw();
 }
-$('#stt').onclick=e=>{if(e.target.closest('#eye')){nbl=!nbl;try{localStorage.setItem('diecast:nb',nbl?'1':'0')}catch(x){}paintNb();return}const b=e.target.closest('[data-st]');if(b)statsUI(b.dataset.st)};
+$('#stt').onclick=e=>{if(e.target.closest('#eye')){togNb();return}const b=e.target.closest('[data-st]');if(b)statsUI(b.dataset.st)};
 paintNb();
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)close()});
 applyAcc();
