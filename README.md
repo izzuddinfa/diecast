@@ -54,3 +54,8 @@ Data lama di aplikasi versi sebelumnya bisa dipindah lewat **Cadangan & ekspor**
 ## Catatan pembaruan (foto per pcs dan unduh foto)
 - `Code.gs` berubah: foto tiap pcs sekarang ikut diunggah ke Drive, dan ada perintah baru untuk mengambil foto saat fitur **Unduh foto** dipakai. Tempel ulang `Code.gs` (jangan lupa isi token lagi), lalu buat versi penerapan baru: **Terapkan → Kelola penerapan → ikon pensil → Versi baru → Terapkan**. Kalau Google meminta izin lagi, setujui.
 - Foto lama yang sudah terunggah tetap berfungsi. Item lama otomatis diubah ke format per pcs saat aplikasi dibuka.
+
+## Catatan pembaruan (logo, favicon, statistik)
+- Unggah juga ke repository GitHub: `favicon.svg`, `icon-192.png`, `icon-512.png`, dan `manifest.webmanifest` (letakkan satu folder dengan `index.html`). Favicon di tab browser sudah tertanam di `index.html`, tapi ikon layar utama HP dan nama aplikasi memakai file-file ini.
+- Kalau ikon layar utama masih lama, hapus pintasan lama lalu **Tambahkan ke layar utama** lagi.
+- Daftar keyword statistik tersimpan di browser tiap perangkat dan ikut tercadangkan lewat **Cadangan & ekspor**. Daftar ini belum ikut sinkron Google Sheets.
